@@ -1,20 +1,76 @@
-// ElementaryAtom.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
-
 #include <iostream>
+#include <raylib.h>
+#include <vector>
+#include <array>
+
+constexpr int nuclear_radius = 5;
+
+struct ElectronLayer {
+    size_t s : 2; // 1 element  (2)
+    size_t p : 3; // 3 elements (6)
+    size_t d : 4; // 5 elements (10)
+    size_t f : 4; // 7 elements (14)
+};
+
+struct Atom {
+    struct {
+        size_t protons : 7;
+        size_t neutrons : 8;
+    } nuclear;
+
+    std::vector<ElectronLayer> electron;
+};
+
+void DrawNuclear(const Atom& atom, int x, int y) {
+    float size = atom.nuclear.protons*2;
+    
+    size_t protons = atom.nuclear.protons;
+    size_t neutrons = atom.nuclear.neutrons;
+
+    float angle = 0.f;
+
+    float lx;
+    float ly;
+
+    while ((protons + neutrons) != 0) {
+        angle = rand();
+        
+        lx = std::cos(angle) * (size * (rand() % 1000) / 1000.f);
+        ly = std::sin(angle) * (size * (rand() % 1000) / 1000.f);
+
+        if (rand() % (protons + neutrons) > protons) {
+            DrawCircle(lx + x, ly + y, nuclear_radius, RED);
+            protons--;
+        }
+        else {
+            DrawCircle(lx + x, ly + y, nuclear_radius, GRAY);
+            neutrons--;
+        }
+    }
+}
+
+void DrawAtom(Atom& atom) {
+
+}
 
 int main()
 {
-    std::cout << "Hello World!\n";
+    InitWindow(640, 480, "Elementary Atom");
+    SetTargetFPS(60);
+
+    Atom atom;
+    atom.nuclear.neutrons = 5;
+    atom.nuclear.protons = 5;
+
+    while (!WindowShouldClose()) {
+        BeginDrawing();
+
+        ClearBackground(BLACK);
+        DrawNuclear(atom, 100, 100);
+
+        EndDrawing();
+    }
+
+    CloseWindow();
 }
 
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
-
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
