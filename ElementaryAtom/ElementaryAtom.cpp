@@ -2,9 +2,15 @@
 #include <raylib.h>
 #include <vector>
 #include <array>
+#include <fstream>
 
-constexpr int res_x = 640;
-constexpr int res_y = 480;
+const std::string atom_path = "atom.txt";
+
+constexpr int res_x = 1280;
+constexpr int res_y = 720;
+
+constexpr int delta_arrow_shift = 5;
+constexpr float delta_scale = 0.05f;
 
 constexpr int nuclear_radius = 5;
 
@@ -27,7 +33,7 @@ struct Atom {
     std::vector<ElectronLayer> electron;
 };
 
-void DrawNuclear(const Atom& atom, int x, int y) {
+void DrawNuclear(const Atom& atom, int x, int y, float scale) {
     float size = atom.nuclear.protons*2;
     
     size_t protons = atom.nuclear.protons;
@@ -41,8 +47,8 @@ void DrawNuclear(const Atom& atom, int x, int y) {
     while ((protons + neutrons) != 0) {
         angle = rand();
         
-        lx = std::cos(angle) * (size * (rand() % 1000) / 1000.f);
-        ly = std::sin(angle) * (size * (rand() % 1000) / 1000.f);
+        lx = std::cos(angle) * (size * (rand() % 1000) / 1000.f) * scale;
+        ly = std::sin(angle) * (size * (rand() % 1000) / 1000.f) * scale;
 
         if (rand() % (protons + neutrons) > protons) {
             DrawCircle(lx + x, ly + y, nuclear_radius, RED);
@@ -85,7 +91,7 @@ uint16_t ElectronStage(const ElectronLayer& el_layer, int choice) {
     }
 }
 
-void DrawElectrons(const Atom& atom, int x, int y) {
+void DrawElectrons(const Atom& atom, int x, int y, float scale) {
     float size = atom.nuclear.protons / 1.75;
 
     uint16_t electrons = 0;
@@ -102,9 +108,9 @@ void DrawElectrons(const Atom& atom, int x, int y) {
             if(electrons != 0)
                 DrawRing(
                     Vector2{ (float)x,(float)y },
-                    ((l + 1) * 4)* (s + 1)* size* size - 2,
-                    ((l + 1) * 4)* (s + 1)* size* size,
-                    0, 360, 15, DARKBLUE);
+                    ((l + 1) * 4)* (s + 1)* size* size * scale - 2,
+                    ((l + 1) * 4)* (s + 1)* size* size * scale,
+                    0, 360, 32, DARKBLUE);
 
             for (size_t e = 0; e < electrons; e++) {
                 angle = rand();
@@ -115,10 +121,83 @@ void DrawElectrons(const Atom& atom, int x, int y) {
                 lx = size * std::cos(angle) * ((l + 1) * 4) * (s + 1) * size + rx;
                 ly = size * std::sin(angle) * ((l + 1) * 4) * (s + 1) * size + ry;
 
+                lx *= scale;
+                ly *= scale;
+
                 DrawCircle(lx + x, ly + y, electron_radius, BLUE);
             }
         }
     }
+}
+
+void InitAtomFile() {
+    std::ofstream fout;
+    fout.open(atom_path);
+
+    fout << "# Atom\n";
+
+    fout << "# Nuclear\n";
+    fout << "# Protons\n";
+    fout << 5 << '\n';
+    fout << "# Neutrons\n";
+    fout << 5 << '\n';
+
+    fout << "# Electrons\n";
+    fout << "# Layer count\n";
+    fout << 2 << '\n';
+
+    fout << "# Each layer should have at least 1 electron to be validated\n";
+
+    fout << "S" << '\n';
+    fout << 2 << '\n';
+    fout << "P" << '\n';
+    fout << 0 << '\n';
+    fout << "D" << '\n';
+    fout << 0 << '\n';
+    fout << "F" << '\n';
+    fout << 0 << '\n';
+
+    fout << "S" << '\n';
+    fout << 2 << '\n';
+    fout << "P" << '\n';
+    fout << 3 << '\n';
+    fout << "D" << '\n';
+    fout << 0 << '\n';
+    fout << "F" << '\n';
+    fout << 0 << '\n';
+
+    fout.close();
+}
+
+void SyncAtomTopology() {
+    std::ifstream fin;
+
+    fin.open(atom_path);
+
+    if (!fin.is_open()) {
+        InitAtomFile();
+    }
+
+
+}
+
+void HandleArrowKeys(int& x, int& y) {
+    if (IsKeyDown(KEY_UP))
+        y += delta_arrow_shift;
+    if (IsKeyDown(KEY_DOWN))
+        y -= delta_arrow_shift;
+    if (IsKeyDown(KEY_LEFT))
+        x += delta_arrow_shift;
+    if (IsKeyDown(KEY_RIGHT))
+        x -= delta_arrow_shift;
+}
+
+void HandleScaleKeys(float& scale) {
+
+    if (IsKeyDown(KEY_MINUS) && scale > 0.1f)
+        scale *= (1.f - delta_scale);
+    if (IsKeyDown(KEY_EQUAL) && scale < 4.f)
+        scale *= (1.f + delta_scale);
 }
 
 int main()
@@ -128,6 +207,8 @@ int main()
 
     int atom_pos_x = res_x / 2;
     int atom_pos_y = res_y / 2;
+
+    float scale = 2.f;
 
     Atom atom;
     atom.nuclear.neutrons = 5;
@@ -139,12 +220,16 @@ int main()
     atom.electron[1].p = 3;
 
     while (!WindowShouldClose()) {
+
+        HandleArrowKeys(atom_pos_x, atom_pos_y);
+        HandleScaleKeys(scale);
+
         BeginDrawing();
 
         ClearBackground(BLACK);
 
-        DrawNuclear(atom, atom_pos_x, atom_pos_y);
-        DrawElectrons(atom, atom_pos_x, atom_pos_y);
+        DrawNuclear(atom, atom_pos_x, atom_pos_y,scale);
+        DrawElectrons(atom, atom_pos_x, atom_pos_y, scale);
 
         EndDrawing();
     }
