@@ -3,6 +3,7 @@
 #include <vector>
 #include <array>
 #include <fstream>
+#include <string>
 
 const std::string atom_path = "atom.txt";
 
@@ -34,7 +35,7 @@ struct Atom {
 };
 
 void DrawNuclear(const Atom& atom, int x, int y, float scale) {
-    float size = atom.nuclear.protons*2;
+    float size = atom.nuclear.protons;
     
     size_t protons = atom.nuclear.protons;
     size_t neutrons = atom.nuclear.neutrons;
@@ -144,9 +145,10 @@ void InitAtomFile() {
 
     fout << "# Electrons\n";
     fout << "# Layer count\n";
-    fout << 2 << '\n';
 
     fout << "# Each layer should have at least 1 electron to be validated\n";
+
+    
 
     fout << "S" << '\n';
     fout << 2 << '\n';
@@ -156,6 +158,8 @@ void InitAtomFile() {
     fout << 0 << '\n';
     fout << "F" << '\n';
     fout << 0 << '\n';
+
+    fout << "END\n";
 
     fout << "S" << '\n';
     fout << 2 << '\n';
@@ -166,19 +170,62 @@ void InitAtomFile() {
     fout << "F" << '\n';
     fout << 0 << '\n';
 
+    fout << "END\n";
+
     fout.close();
 }
 
-void SyncAtomTopology() {
+Atom SyncAtomTopology() {
     std::ifstream fin;
 
     fin.open(atom_path);
 
     if (!fin.is_open()) {
         InitAtomFile();
+        fin.open(atom_path);
     }
 
+    Atom atom;
+    std::string line;
 
+    int stage = 0;
+
+    while (!fin.eof()) {
+        std::getline(fin, line);
+
+        if (line[0] == '#')
+            continue;
+
+        switch (stage) {
+        case 0: // protons
+            atom.nuclear.protons = std::stoi(line);
+            stage++;
+            break;
+        case 1: // neutrons
+            atom.nuclear.neutrons = std::stoi(line);
+            stage++;
+            break;
+        case 2: // electrons
+            std::getline(fin, line);
+            atom.electron.push_back({ 0,0,0,0 });
+
+            while (line != "END") {
+                char saved_char = line[0];
+                std::getline(fin, line);
+
+                switch (saved_char) {
+                case 'S': atom.electron.back().s = std::stoi(line); break;
+                case 'P':atom.electron.back().p = std::stoi(line); break;
+                case 'D':atom.electron.back().d = std::stoi(line); break;
+                case 'F':atom.electron.back().f = std::stoi(line); break;
+                }
+
+                std::getline(fin, line);
+            }
+        default:
+            break;
+        }
+    }
 }
 
 void HandleArrowKeys(int& x, int& y) {
