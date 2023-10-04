@@ -3,7 +3,7 @@
 # Protons
 35
 # Neutrons
-48
+45
 # Electrons
 # Layer count
 # Each layer should have at least 1 electron to be validated
@@ -26,8 +26,3 @@ S
 2
 P
 5
-D
-0
-F
-0
-END

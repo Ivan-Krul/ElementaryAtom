@@ -13,8 +13,8 @@ constexpr int res_y = 720;
 constexpr int delta_arrow_shift = 5;
 constexpr float delta_scale = 0.05f;
 
-constexpr float scale_min = .01f;
-constexpr float scale_max = 8.f;
+constexpr float scale_min = .001f;
+constexpr float scale_max = 64.f;
 
 constexpr int nuclear_radius = 5;
 
@@ -37,9 +37,12 @@ struct Atom {
     std::vector<ElectronLayer> electron;
 };
 
-void DrawNuclear(const Atom& atom, int x, int y, float scale) {
-    float size = (atom.nuclear.protons + atom.nuclear.neutrons) / 2.f;
-    
+void DrawNuclear(const Atom& atom, int x, int y, float scale, bool same_seed) {
+    if (same_seed)
+        srand(0);
+
+    float size = (atom.nuclear.protons + atom.nuclear.neutrons) / 3.f;
+
     size_t protons = atom.nuclear.protons;
     size_t neutrons = atom.nuclear.neutrons;
 
@@ -52,7 +55,7 @@ void DrawNuclear(const Atom& atom, int x, int y, float scale) {
 
     while (total_count > 0) {
         angle = rand();
-        
+
         lx = std::cos(angle) * (size * (rand() % 1000) / 1000.f) * scale;
         ly = std::sin(angle) * (size * (rand() % 1000) / 1000.f) * scale;
 
@@ -60,8 +63,7 @@ void DrawNuclear(const Atom& atom, int x, int y, float scale) {
             DrawCircle(lx + x, ly + y, nuclear_radius, RED);
             protons--;
             total_count--;
-        }
-        else {
+        } else {
             DrawCircle(lx + x, ly + y, nuclear_radius, GRAY);
             neutrons--;
             total_count--;
@@ -102,7 +104,7 @@ uint16_t ElectronStage(const ElectronLayer& el_layer, int choice) {
 Color ElectronStageForColor(const ElectronLayer& el_layer, int choice) {
     switch (choice) {
     case 0:
-        return {0,128,255,255};
+        return { 0,128,255,255 };
     case 1:
         return { 0,255,0,255 };
     case 2:
@@ -114,7 +116,10 @@ Color ElectronStageForColor(const ElectronLayer& el_layer, int choice) {
     }
 }
 
-void DrawElectrons(const Atom& atom, int x, int y, float scale) {
+void DrawElectrons(const Atom& atom, int x, int y, float scale, bool same_seed) {
+    if (same_seed)
+        srand(0);
+
     float size = (atom.nuclear.protons + atom.nuclear.neutrons) / 3.5f;
 
     uint16_t electrons = 0;
@@ -128,12 +133,12 @@ void DrawElectrons(const Atom& atom, int x, int y, float scale) {
         for (size_t s = 0; s < 4; s++) {
             electrons = ElectronStage(atom.electron[l], s);
 
-            if(electrons != 0)
+            if (electrons != 0)
                 DrawRing(
                     Vector2{ (float)x,(float)y },
-                    ((l + 1) * 5 + s + 1)* size* size * scale - 2,
-                    ((l + 1) * 5 + s + 1)* size* size * scale,
-                    0, 360, 32, ElectronStageForColor(atom.electron[l],s));
+                    ((l + 1) * 5 + s + 1) * size * size * scale - 2,
+                    ((l + 1) * 5 + s + 1) * size * size * scale,
+                    0, 360, 32, ElectronStageForColor(atom.electron[l], s));
 
             for (size_t e = 0; e < electrons; e++) {
                 angle = rand();
@@ -153,6 +158,27 @@ void DrawElectrons(const Atom& atom, int x, int y, float scale) {
     }
 }
 
+void DrawScale(float scale) {
+    std::string res = "Scale: ";
+
+    res += std::to_string(1 / scale) + " fempto meters";
+
+    DrawText(res.c_str(), 10, 10, 20, WHITE);
+
+    DrawLine(10, 30, 110, 30, WHITE);
+}
+
+void DrawProperties(const Atom& atom) {
+    std::string prots = "Protons: ";
+    prots += std::to_string(atom.nuclear.protons);
+
+    std::string neuts = "Neutrons: ";
+    neuts += std::to_string(atom.nuclear.neutrons);
+
+    DrawText(prots.c_str(), 400, 10, 20, RED);
+    DrawText(neuts.c_str(), 600, 10, 20, GRAY);
+}
+
 void InitAtomFile() {
     std::ofstream fout;
     fout.open(atom_path);
@@ -170,7 +196,7 @@ void InitAtomFile() {
 
     fout << "# Each layer should have at least 1 electron to be validated\n";
 
-    
+
 
     fout << "S" << '\n';
     fout << 2 << '\n';
@@ -276,12 +302,16 @@ void HandleUpdateTopology(Atom& atom) {
     if (!IsWindowState(FLAG_WINDOW_UNFOCUSED) && !focus) {
         atom = SyncAtomTopology();
     }
-    
+
     focus = !IsWindowState(FLAG_WINDOW_UNFOCUSED);
 }
 
-int main()
-{
+void HandlePause(bool& pause) {
+    if (IsKeyPressed(KEY_SPACE))
+        pause = !pause;
+}
+
+int main() {
     InitWindow(res_x, res_y, "Elementary Atom");
     SetTargetFPS(60);
 
@@ -290,6 +320,8 @@ int main()
 
     float scale = 2.f;
 
+    bool is_pause = false;
+
     Atom atom = SyncAtomTopology();
 
     while (!WindowShouldClose()) {
@@ -297,13 +329,18 @@ int main()
         HandleArrowKeys(atom_pos_x, atom_pos_y);
         HandleScaleKeys(scale);
         HandleUpdateTopology(atom);
+        HandlePause(is_pause);
+
 
         BeginDrawing();
 
         ClearBackground(BLACK);
 
-        DrawNuclear(atom, atom_pos_x, atom_pos_y,scale);
-        DrawElectrons(atom, atom_pos_x, atom_pos_y, scale);
+        DrawNuclear(atom, atom_pos_x, atom_pos_y, scale, is_pause);
+        DrawElectrons(atom, atom_pos_x, atom_pos_y, scale, is_pause);
+
+        DrawScale(scale);
+        DrawProperties(atom);
 
         EndDrawing();
     }
